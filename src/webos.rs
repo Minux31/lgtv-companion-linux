@@ -37,7 +37,7 @@ pub async fn probe(endpoint: &WebOsEndpoint) -> Result<()> {
         "type": "register",
         "id": "lgtv-companion-linux-register",
         "payload": {
-            " pairingType": "PROMPT",
+            "pairingType": "PROMPT",
             "manifest": {
                 "manifestVersion": 1,
                 "appVersion": "0.1.0",
@@ -46,7 +46,6 @@ pub async fn probe(endpoint: &WebOsEndpoint) -> Result<()> {
                     "appId": "com.minux31.lgtv-companion-linux",
                     "vendorId": "Minux31",
                     "localizedAppNames": { "": "LGTV Companion Linux" },
-                    "localized事Names": { "": "LGTV Companion Linux" },
                     "permissions": [
                         "CONTROL_POWER", "READ_POWER_STATE",
                         "CONTROL_INPUT_TEXT", "CONTROL_AUDIO"
