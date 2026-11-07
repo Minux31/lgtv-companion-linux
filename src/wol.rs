@@ -5,8 +5,9 @@ use tokio::net::UdpSocket;
 pub async fn send_magic_packet(mac: &str, broadcast: &Ipv4Addr, port: u16) -> Result<()> {
     let bytes = parse_mac(mac)?;
     let mut packet = [0xffu8; 102];
-    for chunk in packet[6..].chunks_exact_mut(6) {
-        chunk.copy_from_slice(&bytes);
+    for index in 0..16 {
+        let start = 6 + index * 6;
+        packet[start..start + 6].copy_from_slice(&bytes);
     }
 
     let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).await?;
