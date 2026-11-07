@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{fs, os::unix::fs::OpenOptionsExt, path::{Path, PathBuf}};
+use std::{fs, os::unix::fs::{OpenOptionsExt, PermissionsExt}, path::{Path, PathBuf}};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 const REGISTER_ID: &str = "register_0";
@@ -98,8 +98,12 @@ async fn exchange(endpoint: &WebOsEndpoint, key: Option<&str>) -> Result<Registr
 /// Key files are created with mode 0600 and replaced atomically.
 pub async fn register_and_store(endpoint: &WebOsEndpoint, state_dir: &Path) -> Result<RegistrationResponse> {
     tokio::fs::create_dir_all(state_dir).await?;
+    tokio::fs::set_permissions(state_dir, fs::Permissions::from_mode(0o700)).await?;
     let key_path = state_dir.join("webos-client-key");
     let stored_key = tokio::fs::read_to_string(&key_path).await.ok();
+    if stored_key.is_some() {
+        tokio::fs::set_permissions(&key_path, fs::Permissions::from_mode(0o600)).await?;
+    }
     let mut response = exchange(endpoint, stored_key.as_deref()).await?;
 
     // An invalid stored key is commonly answered with a registration error.
@@ -124,6 +128,7 @@ fn persist_key(path: &Path, key: &str) -> Result<()> {
     let mut file = fs::OpenOptions::new().write(true).create(true).truncate(true)
         .mode(0o600).open(&tmp)?;
     use std::io::Write;
+    file.set_permissions(fs::Permissions::from_mode(0o600))?;
     file.write_all(key.as_bytes())?;
     file.sync_all()?;
     fs::rename(&tmp, path)?;
