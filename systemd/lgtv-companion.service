@@ -1,5 +1,6 @@
 [Unit]
-Description=LGTV Companion Linux system service
+Description=LGTV Companion Linux service (development scaffold)
+# Not ready for enablement: the long-running daemon loop is not implemented yet.
 Wants=network-online.target
 After=network-online.target
 # Deliberately independent of graphical and user sessions.
@@ -25,5 +26,4 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 LockPersonality=true
 MemoryDenyWriteExecute=true
 
-[Install]
-WantedBy=multi-user.target
+# Intentionally no [Install] section until the resident daemon is implemented.
