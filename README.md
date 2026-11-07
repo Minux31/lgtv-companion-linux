@@ -22,7 +22,7 @@ Portage Linux de [LGTV Companion](https://github.com/JPersson77/LGTVCompanion), 
 | Paquet Wake-on-LAN | Implémentation initiale |
 | Transport WebSocket webOS | Connexion et SSAP registration initiales ; à valider sur téléviseur |
 | Appairage et stockage de clé | Échange initial + stockage système 0600 ; parcours TV à valider |
-| Commandes et interrogation d'état | À compléter |
+| Interrogation d'état | Requête SSAP getPowerState ; test matériel requis |
 | Détection fiable shutdown/reboot/suspend | À concevoir et tester |
 | GUI Tauri | Non commencée |
 | Packaging Arch Linux | À compléter |
@@ -42,7 +42,7 @@ Lancer en mode diagnostic avec un fichier explicite :
 cargo run -- --config ./config.example.toml check-config
 ```
 
-Le service installé utilise par défaut `/etc/lgtv-companion/config.toml`. Pour tester l'appairage sur une TV, exécuter `sudo lgtv-companion --config /etc/lgtv-companion/config.toml pair` : la clé est enregistrée sous `/var/lib/lgtv-companion/webos-client-key`. Le compte doit avoir accès au répertoire d'état système. Le mode de développement ne doit pas écrire dans les chemins système. Le service systemd fourni reste un squelette : ne pas l'activer comme démon permanent tant que la boucle de service n'est pas implémentée.
+Le service installé utilise par défaut `/etc/lgtv-companion/config.toml`. Pour tester l'appairage sur une TV, exécuter `sudo lgtv-companion --config /etc/lgtv-companion/config.toml pair` : la clé est enregistrée sous `/var/lib/lgtv-companion/webos-client-key`. Pour interroger l'état d'alimentation sans envoyer de commande de mutation, exécuter `sudo lgtv-companion --config /etc/lgtv-companion/config.toml status`. Le compte doit avoir accès au répertoire d'état système. Le mode de développement ne doit pas écrire dans les chemins système. Le service systemd fourni reste un squelette : ne pas l'activer comme démon permanent tant que la boucle de service n'est pas implémentée.
 
 ## Sécurité et prudence
 
