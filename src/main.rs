@@ -47,8 +47,18 @@ async fn main() -> Result<()> {
             info!("configuration syntax is valid; credentials are not displayed");
         }
         Command::Status => {
-            warn!("power-state polling is not implemented yet; use pair to test webOS registration");
-            info!(tv_host = %cfg.tv.host, "configured television");
+            let endpoint = webos::WebOsEndpoint {
+                host: cfg.tv.host.clone(),
+                secure: cfg.tv.secure,
+                port: cfg.tv.port,
+            };
+            match webos::query_power_state(&endpoint, std::path::Path::new("/var/lib/lgtv-companion")).await {
+                Ok(state) => info!(tv_host = %cfg.tv.host, power_state = %state, "webOS power state received"),
+                Err(error) => {
+                    warn!(error = %error, "webOS power-state query failed");
+                    return Err(error);
+                }
+            }
         }
         Command::Pair => {
             let endpoint = webos::WebOsEndpoint {
