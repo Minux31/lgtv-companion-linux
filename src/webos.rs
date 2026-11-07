@@ -159,8 +159,7 @@ pub async fn query_power_state(endpoint: &WebOsEndpoint, state_dir: &Path) -> Re
                 } else if id == REGISTER_ID && kind == "error" {
                     anyhow::bail!("webOS rejected the stored pairing key");
                 } else if id == "getPowerState" && kind == "response" {
-                    let state = value.get("payload").and_then(|p| p.get("state"))
-                        .and_then(Value::as_str).context("webOS response has no power state")?;
+                    let state = parse_power_state(&value)?;
                     let state = state.to_owned();
                     socket.close(None).await.ok();
                     return Ok(state);
@@ -171,6 +170,14 @@ pub async fn query_power_state(endpoint: &WebOsEndpoint, state_dir: &Path) -> Re
             _ => {}
         }
     }
+}
+
+fn parse_power_state(value: &Value) -> Result<&str> {
+    value
+        .get("payload")
+        .and_then(|payload| payload.get("state"))
+        .and_then(Value::as_str)
+        .context("webOS response has no power state")
 }
 
 fn persist_key(path: &Path, key: &str) -> Result<()> {
@@ -188,6 +195,21 @@ fn persist_key(path: &Path, key: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn parses_power_state_response() {
+        let response = json!({
+            "type": "response",
+            "id": "getPowerState",
+            "payload": {"state": "Active"}
+        });
+        assert_eq!(parse_power_state(&response).unwrap(), "Active");
+    }
+
+    #[test]
+    fn rejects_power_state_response_without_state() {
+        assert!(parse_power_state(&json!({"type": "response", "payload": {}})).is_err());
+    }
+
     #[test]
     fn unpaired_registration_requests_prompt_without_key() {
         let frame = registration_message(None);
