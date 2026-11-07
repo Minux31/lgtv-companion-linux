@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use std::{net::{Ipv4Addr, SocketAddrV4}, str::FromStr};
+use std::{net::{Ipv4Addr, SocketAddrV4}};
 use tokio::net::UdpSocket;
 
 pub async fn send_magic_packet(mac: &str, broadcast: &Ipv4Addr, port: u16) -> Result<()> {
