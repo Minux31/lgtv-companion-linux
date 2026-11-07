@@ -75,7 +75,7 @@ async fn exchange(endpoint: &WebOsEndpoint, key: Option<&str>) -> Result<Registr
     let url = endpoint.url();
     let (mut socket, _) = connect_async(&url)
         .await.with_context(|| format!("webOS WebSocket connection failed: {url}"))?;
-    socket.send(Message::Text(registration_message(key).to_string().into())).await?;
+    socket.send(Message::Text(registration_message(key).to_string())).await?;
     loop {
         let message = socket.next().await.context("webOS closed before registration response")??;
         match message {
@@ -132,7 +132,7 @@ pub async fn query_power_state(endpoint: &WebOsEndpoint, state_dir: &Path) -> Re
     let url = endpoint.url();
     let (mut socket, _) = connect_async(&url)
         .await.with_context(|| format!("webOS WebSocket connection failed: {url}"))?;
-    socket.send(Message::Text(registration_message(Some(key.trim())).to_string().into())).await?;
+    socket.send(Message::Text(registration_message(Some(key.trim())).to_string())).await?;
 
     loop {
         let message = socket.next().await.context("webOS closed during power-state query")??;
@@ -148,7 +148,7 @@ pub async fn query_power_state(endpoint: &WebOsEndpoint, state_dir: &Path) -> Re
                         "uri": "ssap://com.webos.service.tvpower/power/getPowerState",
                         "payload": {}
                     });
-                    socket.send(Message::Text(request.to_string().into())).await?;
+                    socket.send(Message::Text(request.to_string())).await?;
                 } else if id == REGISTER_ID && kind == "error" {
                     anyhow::bail!("webOS rejected the stored pairing key");
                 } else if id == "getPowerState" && kind == "response" {
