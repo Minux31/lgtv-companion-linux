@@ -123,6 +123,49 @@ pub async fn register_and_store(endpoint: &WebOsEndpoint, state_dir: &Path) -> R
     Ok(response)
 }
 
+/// Register and query the current webOS power state. This is diagnostic only:
+/// it never sends a power-toggle or screen-off command.
+pub async fn query_power_state(endpoint: &WebOsEndpoint, state_dir: &Path) -> Result<String> {
+    register_and_store(endpoint, state_dir).await?;
+    let key_path = state_dir.join("webos-client-key");
+    let key = tokio::fs::read_to_string(&key_path).await?;
+    let url = endpoint.url();
+    let (mut socket, _) = connect_async(&url)
+        .await.with_context(|| format!("webOS WebSocket connection failed: {url}"))?;
+    socket.send(Message::Text(registration_message(Some(key.trim())).to_string().into())).await?;
+
+    loop {
+        let message = socket.next().await.context("webOS closed during power-state query")??;
+        match message {
+            Message::Text(text) => {
+                let value: Value = serde_json::from_str(&text).context("invalid webOS JSON response")?;
+                let id = value.get("id").and_then(Value::as_str).unwrap_or_default();
+                let kind = value.get("type").and_then(Value::as_str).unwrap_or_default();
+                if id == REGISTER_ID && kind == "registered" {
+                    let request = json!({
+                        "type": "request",
+                        "id": "getPowerState",
+                        "uri": "ssap://com.webos.service.tvpower/power/getPowerState",
+                        "payload": {}
+                    });
+                    socket.send(Message::Text(request.to_string().into())).await?;
+                } else if id == REGISTER_ID && kind == "error" {
+                    anyhow::bail!("webOS rejected the stored pairing key");
+                } else if id == "getPowerState" && kind == "response" {
+                    let state = value.get("payload").and_then(|p| p.get("state"))
+                        .and_then(Value::as_str).context("webOS response has no power state")?;
+                    let state = state.to_owned();
+                    socket.close(None).await.ok();
+                    return Ok(state);
+                }
+            }
+            Message::Ping(data) => socket.send(Message::Pong(data)).await?,
+            Message::Close(_) => anyhow::bail!("webOS closed connection before returning power state"),
+            _ => {}
+        }
+    }
+}
+
 fn persist_key(path: &Path, key: &str) -> Result<()> {
     let tmp: PathBuf = path.with_extension("tmp");
     let mut file = fs::OpenOptions::new().write(true).create(true).truncate(true)
