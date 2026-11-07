@@ -24,6 +24,8 @@ enum Command {
     CheckConfig,
     /// Query the TV connection (implementation in progress).
     Status,
+    /// Pair with the TV and persist the client key under /var/lib/lgtv-companion.
+    Pair,
     /// Send a Wake-on-LAN magic packet.
     Wake,
 }
@@ -45,19 +47,18 @@ async fn main() -> Result<()> {
             info!("configuration syntax is valid; credentials are not displayed");
         }
         Command::Status => {
+            warn!("power-state polling is not implemented yet; use pair to test webOS registration");
+            info!(tv_host = %cfg.tv.host, "configured television");
+        }
+        Command::Pair => {
             let endpoint = webos::WebOsEndpoint {
                 host: cfg.tv.host.clone(),
                 secure: cfg.tv.secure,
                 port: cfg.tv.port,
             };
             let state_dir = std::path::Path::new("/var/lib/lgtv-companion");
-            match webos::register_and_store(&endpoint, state_dir).await {
-                Ok(response) => info!(response_type = %response.response_type, "webOS registration successful; client key stored securely"),
-                Err(error) => {
-                    warn!(error = %error, "webOS registration did not complete");
-                    return Err(error);
-                }
-            }
+            let response = webos::register_and_store(&endpoint, state_dir).await?;
+            info!(response_type = %response.response_type, "webOS registration successful; client key stored securely");
         }
         Command::Wake => {
             let mac = cfg.tv.mac.as_deref().context("tv.mac is required for Wake-on-LAN")?;
