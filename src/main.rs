@@ -45,8 +45,19 @@ async fn main() -> Result<()> {
             info!("configuration syntax is valid; credentials are not displayed");
         }
         Command::Status => {
-            warn!("webOS status polling is not implemented yet");
-            info!(tv_host = %cfg.tv.host, "configured television");
+            let endpoint = webos::WebOsEndpoint {
+                host: cfg.tv.host.clone(),
+                secure: cfg.tv.secure,
+                port: cfg.tv.port,
+            };
+            let state_dir = std::path::Path::new("/var/lib/lgtv-companion");
+            match webos::register_and_store(&endpoint, state_dir).await {
+                Ok(response) => info!(response_type = %response.response_type, "webOS registration successful; client key stored securely"),
+                Err(error) => {
+                    warn!(error = %error, "webOS registration did not complete");
+                    return Err(error);
+                }
+            }
         }
         Command::Wake => {
             let mac = cfg.tv.mac.as_deref().context("tv.mac is required for Wake-on-LAN")?;
