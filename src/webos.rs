@@ -7,7 +7,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{fs, os::unix::fs::{OpenOptionsExt, PermissionsExt}, path::{Path, PathBuf}};
-use tokio::time::{timeout, Duration};
+use tokio::time::{timeout_at, Duration, Instant};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 const REGISTER_ID: &str = "register_0";
@@ -77,8 +77,9 @@ async fn exchange(endpoint: &WebOsEndpoint, key: Option<&str>) -> Result<Registr
     let (mut socket, _) = connect_async(&url)
         .await.with_context(|| format!("webOS WebSocket connection failed: {url}"))?;
     socket.send(Message::Text(registration_message(key).to_string())).await?;
+    let deadline = Instant::now() + Duration::from_secs(60);
     loop {
-        let message = timeout(Duration::from_secs(60), socket.next())
+        let message = timeout_at(deadline, socket.next())
             .await
             .context("timed out waiting for webOS registration response")?
             .context("webOS closed before registration response")??;
@@ -138,8 +139,10 @@ pub async fn query_power_state(endpoint: &WebOsEndpoint, state_dir: &Path) -> Re
         .await.with_context(|| format!("webOS WebSocket connection failed: {url}"))?;
     socket.send(Message::Text(registration_message(Some(key.trim())).to_string())).await?;
 
+    let deadline = Instant::now() + Duration::from_secs(15);
+    let mut request_sent = false;
     loop {
-        let message = timeout(Duration::from_secs(15), socket.next())
+        let message = timeout_at(deadline, socket.next())
             .await
             .context("timed out waiting for webOS power-state response")?
             .context("webOS closed during power-state query")??;
@@ -148,7 +151,8 @@ pub async fn query_power_state(endpoint: &WebOsEndpoint, state_dir: &Path) -> Re
                 let value: Value = serde_json::from_str(&text).context("invalid webOS JSON response")?;
                 let id = value.get("id").and_then(Value::as_str).unwrap_or_default();
                 let kind = value.get("type").and_then(Value::as_str).unwrap_or_default();
-                if id == REGISTER_ID && kind == "registered" {
+                if id == REGISTER_ID && kind == "registered" && !request_sent {
+                    request_sent = true;
                     let request = json!({
                         "type": "request",
                         "id": "getPowerState",
