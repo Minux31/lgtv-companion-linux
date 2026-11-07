@@ -7,6 +7,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{fs, os::unix::fs::{OpenOptionsExt, PermissionsExt}, path::{Path, PathBuf}};
+use tokio::time::{timeout, Duration};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 const REGISTER_ID: &str = "register_0";
@@ -77,7 +78,10 @@ async fn exchange(endpoint: &WebOsEndpoint, key: Option<&str>) -> Result<Registr
         .await.with_context(|| format!("webOS WebSocket connection failed: {url}"))?;
     socket.send(Message::Text(registration_message(key).to_string())).await?;
     loop {
-        let message = socket.next().await.context("webOS closed before registration response")??;
+        let message = timeout(Duration::from_secs(60), socket.next())
+            .await
+            .context("timed out waiting for webOS registration response")?
+            .context("webOS closed before registration response")??;
         match message {
             Message::Text(text) => {
                 let response: RegistrationResponse =
@@ -104,7 +108,7 @@ pub async fn register_and_store(endpoint: &WebOsEndpoint, state_dir: &Path) -> R
     if stored_key.is_some() {
         tokio::fs::set_permissions(&key_path, fs::Permissions::from_mode(0o600)).await?;
     }
-    let mut response = exchange(endpoint, stored_key.as_deref()).await?;
+    let mut response = exchange(endpoint, stored_key.as_deref().map(str::trim)).await?;
 
     // An invalid stored key is commonly answered with a registration error.
     // Retry exactly once without it; never spin on a rejected pairing prompt.
@@ -135,7 +139,10 @@ pub async fn query_power_state(endpoint: &WebOsEndpoint, state_dir: &Path) -> Re
     socket.send(Message::Text(registration_message(Some(key.trim())).to_string())).await?;
 
     loop {
-        let message = socket.next().await.context("webOS closed during power-state query")??;
+        let message = timeout(Duration::from_secs(15), socket.next())
+            .await
+            .context("timed out waiting for webOS power-state response")?
+            .context("webOS closed during power-state query")??;
         match message {
             Message::Text(text) => {
                 let value: Value = serde_json::from_str(&text).context("invalid webOS JSON response")?;
